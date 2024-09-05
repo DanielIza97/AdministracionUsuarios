@@ -1,4 +1,3 @@
-// backend/controllers/userController.js
 const User = require('../models/user');
 const LoginAttempt = require('../models/loginAttempt');
 const { generateOTP } = require('../utils/otpGenerator');
@@ -19,7 +18,6 @@ exports.registerUser = async (req, res) => {
         }
         await user.save();
 
-        // Aquí puedes añadir la lógica para enviar el OTP por SMS, usando un servicio como Twilio.
 
         res.status(201).json({ message: 'OTP enviado exitosamente' });
     } catch (error) {
@@ -42,6 +40,7 @@ exports.verifyOTP = async (req, res) => {
         user.lastLogin = new Date();
         await user.save();
 
+        // Registro de intento de inicio de sesión exitoso
         await LoginAttempt.create({
             userId: user._id,
             phone,
@@ -53,6 +52,35 @@ exports.verifyOTP = async (req, res) => {
         res.status(200).json({ message: 'Usuario verificado exitosamente' });
     } catch (error) {
         res.status(500).json({ error: 'Error al verificar el OTP' });
+    }
+};
+
+// Renovar OTP
+exports.renewOTP = async (req, res) => {
+    const { phone } = req.body;
+
+    try {
+        const user = await User.findOne({ phone });
+
+        if (!user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const now = Date.now();
+        if (user.otpExpires > now) {
+            return res.status(400).json({ error: 'OTP aún válido. Solicite la verificación del OTP actual.' });
+        }
+
+        const { otp, otpExpires } = generateOTP();
+        user.otp = otp;
+        user.otpExpires = otpExpires;
+        await user.save();
+
+        // Aquí puedes enviar el nuevo OTP al teléfono del usuario.
+
+        res.status(200).json({ message: 'Nuevo OTP enviado exitosamente' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al renovar el OTP' });
     }
 };
 
